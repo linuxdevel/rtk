@@ -293,7 +293,7 @@ fn view_pr(args: &[String], _verbose: u8, ultra_compact: bool) -> Result<()> {
     // Our filter forces its own --json fields and would ignore user-requested fields.
     let extra_args = &args[1..];
     if should_passthrough_pr_view(extra_args) {
-        return run_passthrough_with_extra("gh", &["pr", "view", pr_number], extra_args);
+        return run_passthrough_with_extra("gh", &["pr", "view", pr_number.as_str()], extra_args);
     }
 
     let mut cmd = Command::new("gh");
@@ -1120,7 +1120,7 @@ fn pr_diff(args: &[String], _verbose: u8) -> Result<()> {
 
     let mut cmd = Command::new("gh");
     cmd.args(["pr", "diff"]);
-    for arg in &gh_args {
+    for arg in &gh_args as &[String] {
         cmd.arg(arg);
     }
 
