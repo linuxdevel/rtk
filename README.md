@@ -470,10 +470,16 @@ FAILED: 2/15 tests
 ### Uninstall
 
 ```bash
+# One-line complete removal (binary, hooks, config, data)
+curl -fsSL https://raw.githubusercontent.com/linuxdevel/rtk/refs/heads/master/uninstall.sh | sh
+
+# Or step-by-step
 rtk init -g --uninstall     # Remove hook, RTK.md, settings.json entry
-cargo uninstall rtk          # Remove binary
-brew uninstall rtk           # If installed via Homebrew
+cargo uninstall rtk          # Remove binary (or: rm ~/.local/bin/rtk)
+rm -rf ~/.local/share/rtk ~/.config/rtk  # Remove data and config
 ```
+
+See [INSTALL.md](INSTALL.md#uninstalling) for full details.
 
 ## Documentation
 

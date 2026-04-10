@@ -240,33 +240,56 @@ rtk vitest run
 
 ## Uninstalling
 
-### Complete Removal (Global Installations Only)
+### Quick Uninstall (Recommended)
+
+The uninstall script removes the binary, Claude Code hooks, config, and local data in one step:
 
 ```bash
-# Complete removal (global installations only)
-rtk init -g --uninstall
-
-# What gets removed:
-#   - Hook: ~/.claude/hooks/rtk-rewrite.sh
-#   - Context: ~/.claude/RTK.md
-#   - Reference: @RTK.md line from ~/.claude/CLAUDE.md
-#   - Registration: RTK hook entry from settings.json
-
-# Restart Claude Code after uninstall
+curl -fsSL https://raw.githubusercontent.com/linuxdevel/rtk/refs/heads/master/uninstall.sh | sh
 ```
 
-**For Local Projects**: Manually remove RTK block from `./CLAUDE.md`
+### What Gets Removed
 
-### Binary Removal
+| Location | Contents |
+|----------|----------|
+| `~/.claude/hooks/rtk-rewrite.sh` | Claude Code PreToolUse hook |
+| `~/.claude/hooks/.rtk-hook.sha256` | Hook integrity hash |
+| `~/.claude/RTK.md` | Global context file |
+| `~/.claude/CLAUDE.md` | `@RTK.md` reference line (removed) |
+| `~/.claude/settings.json` | RTK hook registration (removed via `rtk init -g --uninstall`) |
+| `~/.local/share/rtk/` | Tracking DB, telemetry salt, tee logs |
+| `~/.config/rtk/` | config.toml, filters.toml, trust store |
+| `~/.local/bin/rtk` or `~/.cargo/bin/rtk` | The binary itself |
+
+### Manual Uninstall (Step-by-Step)
+
+If you prefer manual control:
 
 ```bash
-# If installed via cargo
-cargo uninstall rtk
+# 1. Remove Claude Code integration (hooks + settings.json entry)
+rtk init -g --uninstall
 
-# If installed via package manager
-brew uninstall rtk          # macOS Homebrew
-sudo apt remove rtk         # Debian/Ubuntu
-sudo dnf remove rtk         # Fedora/RHEL
+# 2. Remove the binary
+cargo uninstall rtk                # if installed via cargo
+rm ~/.local/bin/rtk                # if installed via install.sh
+brew uninstall rtk                 # if installed via Homebrew
+sudo apt remove rtk                # if installed via .deb
+sudo dnf remove rtk                # if installed via .rpm
+
+# 3. Remove local data and config
+rm -rf ~/.local/share/rtk
+rm -rf ~/.config/rtk
+
+# 4. Restart Claude Code
+```
+
+### Project-Local Cleanup
+
+The uninstall script does **not** modify project-local files. Check your projects for:
+
+```bash
+# Remove @RTK.md references from project CLAUDE.md or AGENTS.md files
+grep -r "@RTK.md" ~/projects/  # adjust path as needed
 ```
 
 ### Restore from Backup (if needed)
