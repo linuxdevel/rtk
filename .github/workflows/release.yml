@@ -61,6 +61,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Patch version for manual release
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          VERSION="${{ inputs.tag }}"
+          VERSION="${VERSION#v}"
+          test -n "$VERSION"
+          sed -i -E "s/^version = \"[^\"]+\"/version = \"$VERSION\"/" Cargo.toml
+          printf '{\n  ".": "%s"\n}\n' "$VERSION" > .release-please-manifest.json
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -109,6 +118,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Patch version for manual release
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          VERSION="${{ inputs.tag }}"
+          VERSION="${VERSION#v}"
+          test -n "$VERSION"
+          sed -i -E "s/^version = \"[^\"]+\"/version = \"$VERSION\"/" Cargo.toml
+          printf '{\n  ".": "%s"\n}\n' "$VERSION" > .release-please-manifest.json
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
@@ -131,6 +149,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Patch version for manual release
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          VERSION="${{ inputs.tag }}"
+          VERSION="${VERSION#v}"
+          test -n "$VERSION"
+          sed -i -E "s/^version = \"[^\"]+\"/version = \"$VERSION\"/" Cargo.toml
+          printf '{\n  ".": "%s"\n}\n' "$VERSION" > .release-please-manifest.json
 
       - name: Install dependencies
         run: |
@@ -158,6 +185,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Patch version for manual release
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          VERSION="${{ inputs.tag }}"
+          VERSION="${VERSION#v}"
+          test -n "$VERSION"
+          sed -i -E "s/^version = \"[^\"]+\"/version = \"$VERSION\"/" Cargo.toml
+          printf '{\n  ".": "%s"\n}\n' "$VERSION" > .release-please-manifest.json
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -201,4 +237,3 @@ jobs:
           prerelease: ${{ inputs.prerelease }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
