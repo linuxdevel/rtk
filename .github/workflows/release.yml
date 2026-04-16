@@ -80,7 +80,7 @@ jobs:
           $cargo = Get-Content Cargo.toml -Raw
           $cargo = [regex]::Replace($cargo, '^version = ".*?"', "version = `"$version`"", 'Multiline')
           Set-Content Cargo.toml $cargo
-          $manifest = "{`n  `"."": "$version"`n}"
+          $manifest = @{ "." = $version } | ConvertTo-Json -Compress
           Set-Content .release-please-manifest.json $manifest
 
       - name: Install Rust
@@ -150,7 +150,7 @@ jobs:
           $cargo = Get-Content Cargo.toml -Raw
           $cargo = [regex]::Replace($cargo, '^version = ".*?"', "version = `"$version`"", 'Multiline')
           Set-Content Cargo.toml $cargo
-          $manifest = "{`n  `"."": "$version"`n}"
+          $manifest = @{ "." = $version } | ConvertTo-Json -Compress
           Set-Content .release-please-manifest.json $manifest
 
       - name: Install Rust
@@ -195,7 +195,7 @@ jobs:
           $cargo = Get-Content Cargo.toml -Raw
           $cargo = [regex]::Replace($cargo, '^version = ".*?"', "version = `"$version`"", 'Multiline')
           Set-Content Cargo.toml $cargo
-          $manifest = "{`n  `"."": "$version"`n}"
+          $manifest = @{ "." = $version } | ConvertTo-Json -Compress
           Set-Content .release-please-manifest.json $manifest
 
       - name: Install dependencies
@@ -244,7 +244,7 @@ jobs:
           $cargo = Get-Content Cargo.toml -Raw
           $cargo = [regex]::Replace($cargo, '^version = ".*?"', "version = `"$version`"", 'Multiline')
           Set-Content Cargo.toml $cargo
-          $manifest = "{`n  `"."": "$version"`n}"
+          $manifest = @{ "." = $version } | ConvertTo-Json -Compress
           Set-Content .release-please-manifest.json $manifest
 
       - name: Download all artifacts
