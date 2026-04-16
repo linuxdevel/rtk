@@ -395,6 +395,20 @@ mod tests {
     use super::*;
     use std::time::Duration;
 
+    fn wait_for_mtime_tick(reference: SystemTime) {
+        let deadline = std::time::Instant::now() + Duration::from_secs(3);
+        while std::time::Instant::now() < deadline {
+            if SystemTime::now()
+                .duration_since(reference)
+                .is_ok_and(|elapsed| elapsed > Duration::from_secs(1))
+            {
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(25));
+        }
+        panic!("timed out waiting for filesystem timestamp tick");
+    }
+
     #[test]
     fn test_parse_trx_content_extracts_passed_counts() {
         let trx = r#"<?xml version="1.0" encoding="utf-8"?>
@@ -504,7 +518,11 @@ mod tests {
         let old_trx = testresults_dir.join("old.trx");
         let new_trx = testresults_dir.join("new.trx");
         std::fs::write(&old_trx, "old").expect("write old");
-        std::thread::sleep(Duration::from_millis(5));
+        let old_modified = std::fs::metadata(&old_trx)
+            .expect("old metadata")
+            .modified()
+            .expect("old mtime");
+        wait_for_mtime_tick(old_modified);
         std::fs::write(&new_trx, "new").expect("write new");
 
         let found = find_recent_trx_in_dir(&testresults_dir).expect("should find newest trx");
@@ -564,10 +582,15 @@ mod tests {
 
         let trx_old = r#"<?xml version="1.0" encoding="utf-8"?>
 <TestRun><ResultSummary><Counters total="2" executed="2" passed="2" failed="0" /></ResultSummary></TestRun>"#;
-        std::fs::write(trx_dir.join("old.trx"), trx_old).expect("write old trx");
-        std::thread::sleep(Duration::from_millis(5));
+        let old_trx_path = trx_dir.join("old.trx");
+        std::fs::write(&old_trx_path, trx_old).expect("write old trx");
+        let old_modified = std::fs::metadata(&old_trx_path)
+            .expect("old metadata")
+            .modified()
+            .expect("old mtime");
+        wait_for_mtime_tick(old_modified);
         let since = SystemTime::now();
-        std::thread::sleep(Duration::from_millis(5));
+        wait_for_mtime_tick(since);
 
         let trx_new = r#"<?xml version="1.0" encoding="utf-8"?>
 <TestRun><ResultSummary><Counters total="3" executed="3" passed="2" failed="1" /></ResultSummary></TestRun>"#;

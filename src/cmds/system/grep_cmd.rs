@@ -60,6 +60,23 @@ pub fn run(
 
     let raw_output = stdout.to_string();
 
+    if requires_passthrough(extra_args) {
+        if !stdout.is_empty() {
+            print!("{}", stdout);
+        }
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        if !stderr.trim().is_empty() {
+            eprintln!("{}", stderr.trim());
+        }
+        timer.track(
+            &format!("grep -rn '{}' {}", pattern, path),
+            "rtk grep",
+            &raw_output,
+            &raw_output,
+        );
+        return Ok(exit_code);
+    }
+
     if stdout.trim().is_empty() {
         // Show stderr for errors (bad regex, missing file, etc.)
         if exit_code == 2 {
@@ -152,6 +169,30 @@ pub fn run(
     Ok(exit_code)
 }
 
+fn requires_passthrough(extra_args: &[String]) -> bool {
+    extra_args.iter().any(|arg| {
+        matches!(arg.as_str(), "-l" | "-L" | "-c" | "-o")
+            || arg.starts_with("-A")
+            || arg.starts_with("-B")
+            || arg.starts_with("-C")
+            || matches!(
+                arg.as_str(),
+                "--files"
+                    | "--files-with-matches"
+                    | "--files-without-match"
+                    | "--count"
+                    | "--count-matches"
+                    | "--only-matching"
+                    | "--after-context"
+                    | "--before-context"
+                    | "--context"
+            )
+            || arg.starts_with("--after-context=")
+            || arg.starts_with("--before-context=")
+            || arg.starts_with("--context=")
+    })
+}
+
 fn clean_line(line: &str, max_len: usize, context_re: Option<&Regex>, pattern: &str) -> String {
     let trimmed = line.trim();
 
@@ -219,6 +260,47 @@ fn compact_path(path: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_requires_passthrough_for_context_flags() {
+        let args = vec!["-A".to_string(), "1".to_string()];
+        assert!(requires_passthrough(&args));
+        assert!(requires_passthrough(&["-A1".to_string()]));
+        assert!(requires_passthrough(&[
+            "--after-context".to_string(),
+            "1".to_string()
+        ]));
+        assert!(requires_passthrough(&["--before-context=2".to_string()]));
+        assert!(requires_passthrough(&["--context=3".to_string()]));
+    }
+
+    #[test]
+    fn test_requires_passthrough_for_files_only_flags() {
+        assert!(requires_passthrough(&["-l".to_string()]));
+        assert!(requires_passthrough(&["-L".to_string()]));
+        assert!(requires_passthrough(&["--files".to_string()]));
+        assert!(requires_passthrough(&["--files-with-matches".to_string()]));
+        assert!(requires_passthrough(&["--files-without-match".to_string()]));
+    }
+
+    #[test]
+    fn test_requires_passthrough_for_count_flags() {
+        assert!(requires_passthrough(&["-c".to_string()]));
+        assert!(requires_passthrough(&["--count".to_string()]));
+        assert!(requires_passthrough(&["--count-matches".to_string()]));
+    }
+
+    #[test]
+    fn test_requires_passthrough_for_only_matching_flags() {
+        assert!(requires_passthrough(&["-o".to_string()]));
+        assert!(requires_passthrough(&["--only-matching".to_string()]));
+    }
+
+    #[test]
+    fn test_requires_passthrough_ignores_safe_flags() {
+        let args = vec!["-i".to_string(), "-w".to_string(), "--glob".to_string()];
+        assert!(!requires_passthrough(&args));
+    }
 
     #[test]
     fn test_clean_line() {
