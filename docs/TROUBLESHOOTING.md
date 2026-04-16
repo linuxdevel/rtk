@@ -25,7 +25,7 @@ cargo uninstall rtk
 
 #### Quick Install (Linux/macOS)
 ```bash
-curl -fsSL https://github.com/linuxdevel/rtk/blob/master/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/linuxdevel/rtk/refs/heads/master/install.sh | sh
 ```
 
 #### Alternative: Manual Installation
@@ -78,9 +78,9 @@ If **Rust Type Kit** is published to crates.io under the name `rtk`, running `ca
 # CORRECT - Token Killer
 cargo install --git https://github.com/linuxdevel/rtk
 
-# OR install from fork
+# OR install from a local checkout
 git clone https://github.com/linuxdevel/rtk.git
-cd rtk && git checkout feat/all-features
+cd rtk
 cargo install --path . --force
 ```
 
@@ -107,7 +107,7 @@ rtk gain  # Must show stats
 **2. Initialize rtk for Claude Code:**
 ```bash
 # Global (all projects)
-rtk init --global
+rtk init -g
 
 # Per-project
 cd /your/project
