@@ -43,6 +43,7 @@ claudedocs
 # Vitals provenance data
 .vitals/
 .worktrees/
+docs/plans/
 
 # icm 
 .fastembed_cache/
