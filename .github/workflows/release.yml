@@ -62,13 +62,26 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Patch version for manual release
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' && runner.os != 'Windows'
         run: |
           VERSION="${{ inputs.tag }}"
           VERSION="${VERSION#v}"
           test -n "$VERSION"
           sed -i -E "s/^version = \"[^\"]+\"/version = \"$VERSION\"/" Cargo.toml
           printf '{\n  ".": "%s"\n}\n' "$VERSION" > .release-please-manifest.json
+
+      - name: Patch version for manual release (Windows)
+        if: github.event_name == 'workflow_dispatch' && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $version = '${{ inputs.tag }}'
+          $version = $version -replace '^v', ''
+          if ([string]::IsNullOrWhiteSpace($version)) { throw 'Version is empty' }
+          $cargo = Get-Content Cargo.toml -Raw
+          $cargo = [regex]::Replace($cargo, '^version = ".*?"', "version = `"$version`"", 'Multiline')
+          Set-Content Cargo.toml $cargo
+          $manifest = "{`n  `"."": "$version"`n}"
+          Set-Content .release-please-manifest.json $manifest
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -119,13 +132,26 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Patch version for manual release
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' && runner.os != 'Windows'
         run: |
           VERSION="${{ inputs.tag }}"
           VERSION="${VERSION#v}"
           test -n "$VERSION"
           sed -i -E "s/^version = \"[^\"]+\"/version = \"$VERSION\"/" Cargo.toml
           printf '{\n  ".": "%s"\n}\n' "$VERSION" > .release-please-manifest.json
+
+      - name: Patch version for manual release (Windows)
+        if: github.event_name == 'workflow_dispatch' && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $version = '${{ inputs.tag }}'
+          $version = $version -replace '^v', ''
+          if ([string]::IsNullOrWhiteSpace($version)) { throw 'Version is empty' }
+          $cargo = Get-Content Cargo.toml -Raw
+          $cargo = [regex]::Replace($cargo, '^version = ".*?"', "version = `"$version`"", 'Multiline')
+          Set-Content Cargo.toml $cargo
+          $manifest = "{`n  `"."": "$version"`n}"
+          Set-Content .release-please-manifest.json $manifest
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -151,13 +177,26 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Patch version for manual release
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' && runner.os != 'Windows'
         run: |
           VERSION="${{ inputs.tag }}"
           VERSION="${VERSION#v}"
           test -n "$VERSION"
           sed -i -E "s/^version = \"[^\"]+\"/version = \"$VERSION\"/" Cargo.toml
           printf '{\n  ".": "%s"\n}\n' "$VERSION" > .release-please-manifest.json
+
+      - name: Patch version for manual release (Windows)
+        if: github.event_name == 'workflow_dispatch' && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $version = '${{ inputs.tag }}'
+          $version = $version -replace '^v', ''
+          if ([string]::IsNullOrWhiteSpace($version)) { throw 'Version is empty' }
+          $cargo = Get-Content Cargo.toml -Raw
+          $cargo = [regex]::Replace($cargo, '^version = ".*?"', "version = `"$version`"", 'Multiline')
+          Set-Content Cargo.toml $cargo
+          $manifest = "{`n  `"."": "$version"`n}"
+          Set-Content .release-please-manifest.json $manifest
 
       - name: Install dependencies
         run: |
@@ -187,13 +226,26 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Patch version for manual release
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' && runner.os != 'Windows'
         run: |
           VERSION="${{ inputs.tag }}"
           VERSION="${VERSION#v}"
           test -n "$VERSION"
           sed -i -E "s/^version = \"[^\"]+\"/version = \"$VERSION\"/" Cargo.toml
           printf '{\n  ".": "%s"\n}\n' "$VERSION" > .release-please-manifest.json
+
+      - name: Patch version for manual release (Windows)
+        if: github.event_name == 'workflow_dispatch' && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $version = '${{ inputs.tag }}'
+          $version = $version -replace '^v', ''
+          if ([string]::IsNullOrWhiteSpace($version)) { throw 'Version is empty' }
+          $cargo = Get-Content Cargo.toml -Raw
+          $cargo = [regex]::Replace($cargo, '^version = ".*?"', "version = `"$version`"", 'Multiline')
+          Set-Content Cargo.toml $cargo
+          $manifest = "{`n  `"."": "$version"`n}"
+          Set-Content .release-please-manifest.json $manifest
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
