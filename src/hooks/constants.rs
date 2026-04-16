@@ -12,7 +12,6 @@ pub const BEFORE_TOOL_KEY: &str = "BeforeTool";
 pub const OPENCODE_PLUGIN_PATH: &str = ".config/opencode/plugins/rtk.ts";
 #[cfg(test)]
 pub const CURSOR_DIR: &str = ".cursor";
-#[cfg(test)]
 pub const CODEX_DIR: &str = ".codex";
 #[cfg(test)]
 pub const GEMINI_DIR: &str = ".gemini";
