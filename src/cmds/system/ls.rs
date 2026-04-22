@@ -140,7 +140,8 @@ fn compact_ls(raw: &str, show_all: bool) -> (String, String) {
 
         if is_dir {
             dirs.push(name);
-        } else if parts[0].starts_with('-') || parts[0].starts_with('l') {
+        } else {
+            // Regular files, symlinks, character/block devices, pipes, sockets
             let size: u64 = parts[4].parse().unwrap_or(0);
             let ext = if let Some(pos) = name.rfind('.') {
                 name[pos..].to_string()
@@ -325,4 +326,144 @@ mod tests {
             line_count
         );
     }
+
+    // Regression test for #948: owner/group with spaces breaks fixed-column parsing
+    #[test]
+    fn test_compact_multiline_group() {
+        let input = "total 8\n\
+                     -rw-r--r--  1 fjeanne utilisa. du domaine    0 Mar 31 16:18 empty.txt\n\
+                     -rw-r--r--  1 fjeanne utilisa. du domaine 1234 Mar 31 16:18 data.json\n";
+        let (entries, _summary, _) = compact_ls(input, false);
+        assert!(
+            entries.contains("empty.txt"),
+            "should contain 'empty.txt', got: {entries}"
+        );
+        assert!(
+            entries.contains("data.json"),
+            "should contain 'data.json', got: {entries}"
+        );
+        assert!(
+            !entries.contains("16:18"),
+            "time should not leak into filename, got: {entries}"
+        );
+        assert!(
+            entries.contains("0B"),
+            "empty.txt should show 0B, got: {entries}"
+        );
+        assert!(
+            entries.contains("1.2K"),
+            "data.json should show 1.2K (1234 bytes), got: {entries}"
+        );
+    }
+
+    #[test]
+    fn test_compact_year_format_date() {
+        // Some systems show year instead of time for old files
+        let input = "total 8\n\
+                     -rw-r--r--  1 user staff  5678 Dec 25  2024 archive.tar\n";
+        let (entries, _summary, _) = compact_ls(input, false);
+        assert!(
+            entries.contains("archive.tar"),
+            "should contain filename, got: {entries}"
+        );
+        assert!(entries.contains("5.5K"), "should show 5.5K, got: {entries}");
+    }
+
+    #[test]
+    fn test_parse_ls_line_basic() {
+        let (ft, size, name) =
+            parse_ls_line("-rw-r--r--  1 user staff 1234 Jan  1 12:00 file.txt").unwrap();
+        assert_eq!(ft, '-');
+        assert_eq!(size, 1234);
+        assert_eq!(name, "file.txt");
+    }
+
+    #[test]
+    fn test_parse_ls_line_multiline_group() {
+        let (ft, size, name) =
+            parse_ls_line("-rw-r--r--  1 fjeanne utilisa. du domaine 0 Mar 31 16:18 empty.txt")
+                .unwrap();
+        assert_eq!(ft, '-');
+        assert_eq!(size, 0);
+        assert_eq!(name, "empty.txt");
+    }
+
+    #[test]
+    fn test_parse_ls_line_dir_with_space_in_group() {
+        let (ft, size, name) =
+            parse_ls_line("drwxr-xr-x  2 fjeanne utilisa. du domaine 64 Mar 31 16:18 my dir")
+                .unwrap();
+        assert_eq!(ft, 'd');
+        assert_eq!(size, 64);
+        assert_eq!(name, "my dir");
+    }
+
+    #[test]
+    fn test_parse_ls_line_symlink() {
+        let (ft, size, name) =
+            parse_ls_line("lrwxr-xr-x  1 user staff 10 Jan  1 12:00 link -> target").unwrap();
+        assert_eq!(ft, 'l');
+        assert_eq!(size, 10);
+        assert_eq!(name, "link -> target");
+    }
+
+    #[test]
+    fn test_compact_device_files() {
+        // Regression test for #844: `rtk ls /dev/ttyACM*` returned "(empty)"
+        // because character devices (type 'c') were not handled by compact_ls.
+        let input = "crw-rw----  1 root  dialout  166, 0 Apr 22 09:46 /dev/ttyACM0\n";
+        let (entries, _summary, _parsed) = compact_ls(input, false);
+        assert!(
+            entries.contains("/dev/ttyACM0"),
+            "should contain device file, got: {entries}"
+        );
+        assert!(!entries.contains("(empty)"), "should not be empty");
+    }
+
+    #[test]
+    fn test_compact_device_files_macos_hex_size() {
+        // macOS shows device major/minor as hex (e.g. 0x2000000)
+        let input = "crw-rw-rw-  1 root  wheel  0x2000000 Mar 31 19:25 /dev/tty\n";
+        let (entries, _summary, _parsed) = compact_ls(input, false);
+        assert!(
+            entries.contains("/dev/tty"),
+            "should contain device file, got: {entries}"
+        );
+    }
+
+    #[test]
+    fn test_compact_block_device() {
+        let input = "brw-rw----  1 root  disk  8, 0 Apr 22 09:46 /dev/sda\n";
+        let (entries, _summary, _parsed) = compact_ls(input, false);
+        assert!(
+            entries.contains("/dev/sda"),
+            "should contain block device, got: {entries}"
+        );
+    }
+
+    #[test]
+    fn test_parse_ls_line_returns_none_for_total() {
+        assert!(parse_ls_line("total 48").is_none());
+    }
+
+    #[test]
+    fn test_parse_ls_line_year_format() {
+        let (ft, size, name) =
+            parse_ls_line("-rw-r--r--  1 user staff 5678 Dec 25  2024 old.tar.gz").unwrap();
+        assert_eq!(ft, '-');
+        assert_eq!(size, 5678);
+        assert_eq!(name, "old.tar.gz");
+    }
+
+    #[test]
+    fn test_compact_chinese_locale_fallback() {
+        let input = "total 8\n\
+                      drwxr-xr-x  2 user staff  64  1月  1 12:00 src\n\
+                      -rw-r--r--  1 user staff 1234  1月  1 12:00 main.rs\n";
+        let (entries, summary, parsed_count) = compact_ls(input, false);
+        assert_eq!(parsed_count, 0);
+        assert!(entries.is_empty());
+        assert!(summary.is_empty());
+    }
 }
+
