@@ -5,6 +5,16 @@ All notable changes to rtk (Rust Token Killer) will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.35.3](https://github.com/linuxdevel/rtk/compare/v0.35.2...v0.35.3) (2026-04-23)
+
+
+### Bug Fixes
+
+* **ci:** patch manual release version on Windows ([16b986c](https://github.com/linuxdevel/rtk/commit/16b986ce5cf9dff6ea3bba6e2a8ecb78cf066115))
+* **ci:** serialize manifest patch on Windows ([7d338ec](https://github.com/linuxdevel/rtk/commit/7d338ec6b5b690e3e9903c6f1e1d2b292f3d5bd0))
+* **find:** passthrough to real find for unsupported flags (-exec, -not, etc.) ([846c021](https://github.com/linuxdevel/rtk/commit/846c021714a1691fc4980979b0c83d94eba30280))
+* **release:** sync manual tag and package version ([c6925d3](https://github.com/linuxdevel/rtk/commit/c6925d346302397a4aa5605c14bd19b1b55ae86f))
+
 ## [0.35.0](https://github.com/rtk-ai/rtk/compare/v0.34.3...v0.35.0) (2026-04-06)
 
 
