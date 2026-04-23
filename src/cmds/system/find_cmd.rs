@@ -4,6 +4,7 @@ use crate::core::tracking;
 use anyhow::{Context, Result};
 use ignore::WalkBuilder;
 use std::collections::HashMap;
+use std::ffi::OsString;
 use std::path::Path;
 
 /// Match a filename against a glob pattern (supports `*` and `?`).
@@ -82,12 +83,6 @@ fn has_unsupported_find_flags(args: &[String]) -> bool {
 fn parse_find_args(args: &[String]) -> Result<FindArgs> {
     if args.is_empty() {
         return Ok(FindArgs::default());
-    }
-
-    if has_unsupported_find_flags(args) {
-        anyhow::bail!(
-            "rtk find does not support compound predicates or actions (e.g. -not, -exec). Use `find` directly."
-        );
     }
 
     if has_native_find_flags(args) {
@@ -177,7 +172,16 @@ fn parse_rtk_find_args(args: &[String]) -> Result<FindArgs> {
 }
 
 /// Entry point from main.rs — parses raw args then delegates to run().
+/// Falls through to the real `find` binary when unsupported flags are detected.
 pub fn run_from_args(args: &[String], verbose: u8) -> Result<()> {
+    if has_unsupported_find_flags(args) {
+        let os_args: Vec<OsString> = args.iter().map(OsString::from).collect();
+        let exit_code = crate::core::runner::run_passthrough("find", &os_args, verbose)?;
+        if exit_code != 0 {
+            std::process::exit(exit_code);
+        }
+        return Ok(());
+    }
     let parsed = parse_find_args(args)?;
     run(
         &parsed.pattern,
@@ -492,17 +496,16 @@ mod tests {
     // --- parse_find_args: unsupported flags ---
 
     #[test]
-    fn parse_native_find_rejects_not() {
-        let result = parse_find_args(&args(&[".", "-name", "*.rs", "-not", "-name", "*_test.rs"]));
-        assert!(result.is_err());
-        let msg = result.unwrap_err().to_string();
-        assert!(msg.contains("compound predicates"));
+    fn parse_native_find_not_flag_detected() {
+        // -not is unsupported and should trigger passthrough detection
+        assert!(has_unsupported_find_flags(&args(&[".", "-name", "*.rs", "-not", "-name", "*_test.rs"])));
     }
 
     #[test]
-    fn parse_native_find_rejects_exec() {
-        let result = parse_find_args(&args(&[".", "-name", "*.tmp", "-exec", "rm", "{}", ";"]));
-        assert!(result.is_err());
+    fn parse_native_find_exec_triggers_passthrough() {
+        // -exec should signal passthrough, not an error
+        let result = has_unsupported_find_flags(&args(&[".", "-name", "*.tmp", "-exec", "rm", "{}", ";"]));
+        assert!(result, "-exec should be detected as unsupported");
     }
 
     // --- parse_find_args: RTK syntax ---
