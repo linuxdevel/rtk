@@ -179,6 +179,9 @@ enum Commands {
 
     /// pnpm commands with ultra-compact output
     Pnpm {
+        /// Workspace filter (--filter <package>, can be repeated)
+        #[arg(short = 'F', long = "filter", allow_hyphen_values = true, action = clap::ArgAction::Append)]
+        filter: Vec<String>,
         #[command(subcommand)]
         command: PnpmCommands,
     },
@@ -811,6 +814,20 @@ enum PnpmCommands {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
+    /// Run test script with vitest-filtered output
+    Test {
+        /// Additional test arguments (e.g., -- file1.test.ts file2.test.ts)
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Run a pnpm script
+    Run {
+        /// Script name
+        script: String,
+        /// Additional arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
     /// Passthrough: runs any unsupported pnpm subcommand directly
     #[command(external_subcommand)]
     Other(Vec<OsString>),
@@ -1435,27 +1452,52 @@ fn run_cli() -> Result<i32> {
 
         Commands::Psql { args } => psql_cmd::run(&args, cli.verbose)?,
 
-        Commands::Pnpm { command } => match command {
-            PnpmCommands::List { depth, args } => {
-                pnpm_cmd::run(pnpm_cmd::PnpmCommand::List { depth }, &args, cli.verbose)?
+        Commands::Pnpm { filter, command } => {
+            // Build --filter flags to prepend for passthrough commands
+            let filter_os: Vec<OsString> = filter
+                .iter()
+                .flat_map(|f| vec![OsString::from("--filter"), OsString::from(f)])
+                .collect();
+
+            match command {
+                PnpmCommands::List { depth, args } => {
+                    pnpm_cmd::run(pnpm_cmd::PnpmCommand::List { depth }, &args, cli.verbose)?
+                }
+                PnpmCommands::Outdated { args } => {
+                    pnpm_cmd::run(pnpm_cmd::PnpmCommand::Outdated, &args, cli.verbose)?
+                }
+                PnpmCommands::Install { packages, args } => pnpm_cmd::run(
+                    pnpm_cmd::PnpmCommand::Install { packages },
+                    &args,
+                    cli.verbose,
+                )?,
+                PnpmCommands::Build { args } => {
+                    let mut os_args = filter_os.clone();
+                    os_args.push("build".into());
+                    os_args.extend(args.into_iter().map(OsString::from));
+                    pnpm_cmd::run_passthrough(&os_args, cli.verbose)?
+                }
+                PnpmCommands::Typecheck { args } => tsc_cmd::run(&args, cli.verbose)?,
+                PnpmCommands::Test { args } => {
+                    let mut os_args = filter_os.clone();
+                    os_args.push("test".into());
+                    os_args.extend(args.into_iter().map(OsString::from));
+                    pnpm_cmd::run_passthrough(&os_args, cli.verbose)?
+                }
+                PnpmCommands::Run { script, args } => {
+                    let mut os_args = filter_os.clone();
+                    os_args.push("run".into());
+                    os_args.push(OsString::from(script));
+                    os_args.extend(args.into_iter().map(OsString::from));
+                    pnpm_cmd::run_passthrough(&os_args, cli.verbose)?
+                }
+                PnpmCommands::Other(args) => {
+                    let mut os_args = filter_os;
+                    os_args.extend(args);
+                    pnpm_cmd::run_passthrough(&os_args, cli.verbose)?
+                }
             }
-            PnpmCommands::Outdated { args } => {
-                pnpm_cmd::run(pnpm_cmd::PnpmCommand::Outdated, &args, cli.verbose)?
-            }
-            PnpmCommands::Install { packages, args } => pnpm_cmd::run(
-                pnpm_cmd::PnpmCommand::Install { packages },
-                &args,
-                cli.verbose,
-            )?,
-            PnpmCommands::Build { args } => {
-                let mut build_args: Vec<String> = vec!["build".into()];
-                build_args.extend(args);
-                let os_args: Vec<OsString> = build_args.into_iter().map(OsString::from).collect();
-                pnpm_cmd::run_passthrough(&os_args, cli.verbose)?
-            }
-            PnpmCommands::Typecheck { args } => tsc_cmd::run(&args, cli.verbose)?,
-            PnpmCommands::Other(args) => pnpm_cmd::run_passthrough(&args, cli.verbose)?,
-        },
+        }
 
         Commands::Err { command } => {
             let cmd = command.join(" ");
