@@ -5,6 +5,13 @@ All notable changes to rtk (Rust Token Killer) will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.37.0](https://github.com/linuxdevel/rtk/compare/v0.36.2...v0.37.0) (2026-05-21)
+
+
+### Features
+
+* **pnpm:** add --filter flag, test and run subcommands ([d1264a8](https://github.com/linuxdevel/rtk/commit/d1264a86f41a1ed9721e9b5d30fc746f54d9eaf6))
+
 ## [0.35.3](https://github.com/linuxdevel/rtk/compare/v0.35.2...v0.35.3) (2026-04-23)
 
 
