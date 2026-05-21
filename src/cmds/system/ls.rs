@@ -140,7 +140,8 @@ fn compact_ls(raw: &str, show_all: bool) -> (String, String) {
 
         if is_dir {
             dirs.push(name);
-        } else if parts[0].starts_with('-') || parts[0].starts_with('l') {
+        } else {
+            // Regular files, symlinks, character/block devices, pipes, sockets
             let size: u64 = parts[4].parse().unwrap_or(0);
             let ext = if let Some(pos) = name.rfind('.') {
                 name[pos..].to_string()
@@ -325,4 +326,28 @@ mod tests {
             line_count
         );
     }
+
+    #[test]
+    fn test_compact_device_files() {
+        // Regression: `rtk ls /dev/ttyACM*` returned "(empty)"
+        // because character devices (type 'c') were not handled.
+        let input = "crw-rw----  1 root  dialout  166 Apr 22 09:46 /dev/ttyACM0\n";
+        let (entries, _summary) = compact_ls(input, false);
+        assert!(
+            entries.contains("/dev/ttyACM0"),
+            "should contain device file, got: {entries}"
+        );
+        assert!(!entries.contains("(empty)"), "should not be empty");
+    }
+
+    #[test]
+    fn test_compact_block_device() {
+        let input = "brw-rw----  1 root  disk  8 Apr 22 09:46 /dev/sda\n";
+        let (entries, _summary) = compact_ls(input, false);
+        assert!(
+            entries.contains("/dev/sda"),
+            "should contain block device, got: {entries}"
+        );
+    }
 }
+
