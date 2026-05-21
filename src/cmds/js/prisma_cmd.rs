@@ -10,6 +10,7 @@ pub enum PrismaCommand {
     Generate,
     Migrate { subcommand: MigrateSubcommand },
     DbPush,
+    Validate,
 }
 
 #[derive(Debug, Clone)]
@@ -24,7 +25,42 @@ pub fn run(cmd: PrismaCommand, args: &[String], verbose: u8) -> Result<i32> {
         PrismaCommand::Generate => run_generate(args, verbose),
         PrismaCommand::Migrate { subcommand } => run_migrate(subcommand, args, verbose),
         PrismaCommand::DbPush => run_db_push(args, verbose),
+        PrismaCommand::Validate => run_validate(args, verbose),
     }
+}
+
+/// Passthrough for unrecognized prisma subcommands (format, db pull, studio, init, etc.)
+pub fn run_passthrough(args: &[String], verbose: u8) -> Result<i32> {
+    let timer = tracking::TimedExecution::start();
+
+    let mut cmd = create_prisma_command();
+    for arg in args {
+        cmd.arg(arg);
+    }
+
+    let cmd_label = format!("prisma {}", args.join(" "));
+    if verbose > 0 {
+        eprintln!("Running: {}", cmd_label);
+    }
+
+    let output = cmd
+        .output()
+        .with_context(|| format!("Failed to run {}", cmd_label))?;
+
+    let exit_code = crate::core::utils::exit_code_from_output(&output, "prisma");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    if !stdout.trim().is_empty() {
+        print!("{}", stdout);
+    }
+    if !stderr.trim().is_empty() {
+        eprint!("{}", stderr);
+    }
+
+    timer.track_passthrough(&cmd_label, &format!("rtk {}", cmd_label));
+
+    Ok(exit_code)
 }
 
 /// Create a Command that will run prisma (tries global first, then npx)
@@ -176,6 +212,44 @@ fn run_db_push(args: &[String], verbose: u8) -> Result<i32> {
     let filtered = filter_db_push(&raw);
     println!("{}", filtered);
     timer.track("prisma db push", "rtk prisma db push", &raw, &filtered);
+
+    Ok(0)
+}
+
+fn run_validate(args: &[String], verbose: u8) -> Result<i32> {
+    let timer = tracking::TimedExecution::start();
+
+    let mut cmd = create_prisma_command();
+    cmd.arg("validate");
+    for arg in args {
+        cmd.arg(arg);
+    }
+
+    if verbose > 0 {
+        eprintln!("Running: prisma validate");
+    }
+
+    let output = cmd.output().context("Failed to run prisma validate")?;
+
+    let exit_code = crate::core::utils::exit_code_from_output(&output, "prisma");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let raw = format!("{}\n{}", stdout, stderr);
+
+    if !output.status.success() {
+        if !stdout.trim().is_empty() {
+            eprint!("{}", stdout);
+        }
+        if !stderr.trim().is_empty() {
+            eprint!("{}", stderr);
+        }
+        timer.track("prisma validate", "rtk prisma validate", &raw, &raw);
+        return Ok(exit_code);
+    }
+
+    let filtered = filter_prisma_validate(&raw);
+    println!("{}", filtered);
+    timer.track("prisma validate", "rtk prisma validate", &raw, &filtered);
 
     Ok(0)
 }
@@ -404,6 +478,52 @@ fn filter_db_push(output: &str) -> String {
     result.trim().to_string()
 }
 
+/// Filter prisma validate output - strip banner, keep result
+fn filter_prisma_validate(output: &str) -> String {
+    let mut schema_path = String::new();
+    let mut is_valid = false;
+    let mut errors: Vec<String> = Vec::new();
+
+    for line in output.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty()
+            || trimmed.contains('█')
+            || trimmed.contains('▀')
+            || trimmed.contains('▄')
+        {
+            continue;
+        }
+        if trimmed.starts_with("Prisma schema loaded from") {
+            if let Some(path) = trimmed.strip_prefix("Prisma schema loaded from").map(str::trim) {
+                schema_path = path.to_string();
+            }
+            continue;
+        }
+        if trimmed.contains("is valid") {
+            is_valid = true;
+            continue;
+        }
+        if trimmed.starts_with("error:") || trimmed.starts_with("Error:") {
+            errors.push(trimmed.to_string());
+        }
+    }
+
+    if errors.is_empty() {
+        let mut result = String::new();
+        if !schema_path.is_empty() {
+            result.push_str(&format!("Schema: {}\n", schema_path));
+        }
+        if is_valid {
+            result.push_str("Schema valid");
+        } else {
+            result.push_str("Schema validated");
+        }
+        result
+    } else {
+        errors.join("\n")
+    }
+}
+
 /// Extract first number from a line
 fn extract_number(line: &str) -> Option<usize> {
     line.split_whitespace()
@@ -487,6 +607,29 @@ CREATE INDEX "session_status_idx" ON "Session"("status");
         assert!(result.contains("20260128_add_sessions"));
         assert!(result.contains("+ 1 table"));
         assert!(result.contains("Applied"));
+    }
+
+    #[test]
+    fn test_filter_validate_valid() {
+        let output = r#"
+Prisma schema loaded from prisma/schema.prisma
+The schema at `prisma/schema.prisma` is valid 🚀
+"#;
+        let result = filter_prisma_validate(output);
+        assert!(result.contains("prisma/schema.prisma"));
+        assert!(result.contains("valid"));
+        assert!(!result.contains("loaded from"));
+    }
+
+    #[test]
+    fn test_filter_validate_error() {
+        let output = r#"
+Prisma schema loaded from prisma/schema.prisma
+error: Type "Foo" is neither a built-in type, nor refers to another model, custom type, or enum.
+"#;
+        let result = filter_prisma_validate(output);
+        assert!(result.contains("error:"));
+        assert!(!result.contains("loaded from"));
     }
 
     #[test]

@@ -911,6 +911,15 @@ enum PrismaCommands {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
+    /// Validate Prisma schema
+    Validate {
+        /// Additional prisma arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Passthrough for other prisma subcommands (format, db pull, studio, init, etc.)
+    #[command(external_subcommand)]
+    External(Vec<String>),
 }
 
 #[derive(Subcommand)]
@@ -1759,6 +1768,10 @@ fn run_cli() -> Result<i32> {
             PrismaCommands::DbPush { args } => {
                 prisma_cmd::run(prisma_cmd::PrismaCommand::DbPush, &args, cli.verbose)?
             }
+            PrismaCommands::Validate { args } => {
+                prisma_cmd::run(prisma_cmd::PrismaCommand::Validate, &args, cli.verbose)?
+            }
+            PrismaCommands::External(args) => prisma_cmd::run_passthrough(&args, cli.verbose)?,
         },
 
         Commands::Tsc { args } => tsc_cmd::run(&args, cli.verbose)?,
